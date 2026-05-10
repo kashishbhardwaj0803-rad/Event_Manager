@@ -1,253 +1,295 @@
 "use client";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Settings, Shield, Cpu, Radio, ChevronDown } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getSystemSettings, updateSystemSetting } from "@/lib/database";
+import { Settings, Shield, Cpu, Radio, ChevronDown, Save } from "lucide-react";
+import { useState } from "react";
+
+const C = {
+  glass: "rgba(255,255,255,0.04)", stroke: "rgba(255,255,255,0.08)",
+  strokeS: "rgba(255,255,255,0.14)",
+  t1: "rgba(255,255,255,0.95)", t2: "rgba(255,255,255,0.60)",
+  t3: "rgba(255,255,255,0.35)", t4: "rgba(255,255,255,0.18)",
+  blue: "#ADC6FF", blueA: "#4B8EFF", green: "#4ADE80", amber: "#FFD166", red: "#FF4D6D",
+  s1: "#131315",
+};
+
+function card(extra?: React.CSSProperties): React.CSSProperties {
+  return {
+    background: C.glass, backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)", borderRadius: 16,
+    border: `1px solid ${C.stroke}`, overflow: "hidden", ...extra,
+  };
+}
+
+function SectionIcon({ bg, borderColor, children }: { bg: string; borderColor: string; children: React.ReactNode }) {
+  return (
+    <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, border: `1px solid ${borderColor}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      {children}
+    </div>
+  );
+}
+
+function SliderRow({ label, value, min, max, step = 1, unit, onChange, note }: {
+  label: string; value: number; min: number; max: number; step?: number;
+  unit?: string; onChange: (v: number) => void; note?: string;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.t2 }}>{label}</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: C.t1 }}>
+          {step < 1 ? value.toFixed(1) : value}{unit ?? ""}
+        </span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        style={{
+          WebkitAppearance: "none", appearance: "none",
+          width: "100%", height: 4, borderRadius: 99, outline: "none", cursor: "pointer",
+          background: `linear-gradient(to right, ${C.blue} ${pct}%, rgba(255,255,255,0.10) ${pct}%)`,
+        }}
+      />
+      {note && <p style={{ fontSize: 11, color: C.t3, fontFamily: "Inter,sans-serif", marginTop: 6 }}>{note}</p>}
+    </div>
+  );
+}
+
+function Toggle({ on, danger, onToggle }: { on: boolean; danger?: boolean; onToggle: () => void }) {
+  return (
+    <div onClick={onToggle} style={{
+      position: "relative", width: 44, height: 24, borderRadius: 12, cursor: "pointer", flexShrink: 0,
+      background: on ? (danger ? C.red : C.blueA) : "rgba(255,255,255,0.10)",
+      border: on ? "none" : `1px solid ${C.stroke}`, transition: "background 0.2s",
+    }}>
+      <div style={{
+        position: "absolute", width: 18, height: 18, borderRadius: "50%", background: "#fff",
+        top: 3, left: on ? "calc(100% - 21px)" : 3,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.3)", transition: "left 0.2s",
+      }} />
+    </div>
+  );
+}
+
+function SegmentedControl({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 4 }}>
+      {options.map(opt => (
+        <button key={opt} onClick={() => onChange(opt)} style={{
+          flex: 1, padding: "9px 4px", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: 600,
+          fontFamily: "Inter,sans-serif", transition: "all 0.15s",
+          background: value === opt ? C.blueA : "transparent",
+          color: value === opt ? "#fff" : C.t2,
+          border: value === opt ? "none" : `1px solid ${C.stroke}`,
+        }}>{opt}</button>
+      ))}
+    </div>
+  );
+}
 
 export default function SystemSettingsPage() {
-  const [settings, setSettings] = useState<Record<string, unknown>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [nfcSens, setNfcSens]     = useState(82);
+  const [rfidRange, setRfidRange] = useState(4.5);
+  const [autoCal, setAutoCal]     = useState(true);
+  const [breachMode, setBreach]   = useState("Strict");
+  const [bioTimeout, setBioTo]    = useState("15s");
+  const [saving, setSaving]       = useState(false);
 
-  useEffect(() => {
-    getSystemSettings().then((s) => { setSettings(s); setLoading(false); });
-  }, []);
-
-  const handleUpdate = async (key: string, value: unknown) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    setSaving(key);
-    await updateSystemSetting(key, value);
-    setSaving(null);
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 1200));
+    setSaving(false);
   };
-
-  const nfcSensitivity = Number(settings['nfc_reader_sensitivity'] ?? 82);
-  const rfidRange = Number(settings['rfid_range_meters'] ?? 4.5);
-  const autoCal = settings['hardware_auto_calibration'] === true || settings['hardware_auto_calibration'] === 'true';
-  const breachMode = (settings['proximity_breach_mode'] as string ?? '"Strict"').replace(/"/g, '');
-  const bioTimeout = Number(settings['bio_link_timeout_seconds'] ?? 15);
 
   return (
     <DashboardLayout>
-      <div className="p-6 h-[calc(100vh-56px)] overflow-y-auto space-y-5">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Settings size={14} className="text-[var(--primary)]" />
-            <span className="label-caps text-[var(--primary)]">Global Configuration</span>
+      <div style={{ padding: 24, height: "calc(100vh - 56px)", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {/* Page Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <Settings size={13} color={C.blue} />
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, color: C.blue, letterSpacing: "0.12em", textTransform: "uppercase" }}>GLOBAL CONFIGURATION</span>
+            </div>
+            <h1 style={{ fontSize: 32, fontWeight: 700, color: C.t1, letterSpacing: -0.8, fontFamily: "Inter,sans-serif", marginBottom: 6 }}>System Parameters</h1>
+            <p style={{ fontSize: 13, color: C.t2, fontFamily: "Inter,sans-serif", lineHeight: 1.6, maxWidth: 560 }}>
+              Calibrate hardware sensitivity, security thresholds, and the core CEMS engine rules.
+            </p>
           </div>
-          <h1 className="text-[32px] font-bold text-white">System Parameters</h1>
-          <p className="text-[13px] text-[var(--text-secondary)] mt-1 max-w-xl">
-            Calibrate hardware sensitivity, security thresholds, and the core CEMS engine rules.
-            {saving && <span className="ml-2 text-[var(--primary)]">Saving {saving}...</span>}
-          </p>
+          <button onClick={handleSave} style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "11px 22px", borderRadius: 12, cursor: "pointer",
+            background: saving ? "rgba(173,198,255,0.2)" : "linear-gradient(180deg,#c5d8ff,#ADC6FF,#92b0f5)",
+            border: "none", fontSize: 13, fontWeight: 700,
+            color: saving ? C.blue : "#0a0a10", fontFamily: "Inter,sans-serif",
+            boxShadow: saving ? "none" : "0 2px 14px rgba(173,198,255,0.30)",
+            transition: "all 0.2s",
+          }}>
+            <Save size={14} color={saving ? C.blue : "#0a0a10"} />
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
-          {/* Hardware Configuration */}
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "rgba(173,198,255,0.1)", border: "1px solid var(--primary-border)" }}>
-                <Settings size={16} className="text-[var(--primary)]" />
-              </div>
-              <h3 className="text-[15px] font-semibold text-white">Hardware Configuration</h3>
+        {/* 2-column card grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+          {/* ── Hardware Configuration ── */}
+          <div style={card({ padding: 22 })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+              <SectionIcon bg="rgba(173,198,255,0.10)" borderColor="rgba(173,198,255,0.22)">
+                <Settings size={16} color={C.blue} />
+              </SectionIcon>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Hardware Configuration</h3>
             </div>
 
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => <div key={i} className="h-12 rounded-xl animate-pulse bg-white/[0.06]" />)}
+            <SliderRow label="NFC Reader Sensitivity" value={nfcSens} min={0} max={100} unit="%" onChange={setNfcSens} note="Adjusts proximity detection for wearable transponders." />
+            <SliderRow label="RFID Range (Meters)" value={rfidRange} min={0} max={10} step={0.1} unit="m" onChange={setRfidRange} note="Maximum distance for long-range positioning tags." />
+
+            {/* Auto Calibration toggle */}
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(0,0,0,0.25)", border: `1px solid ${C.stroke}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif", marginBottom: 3 }}>Hardware Auto-Calibration</p>
+                  <p style={{ fontSize: 10, color: C.t3, fontFamily: "Inter,sans-serif" }}>Sync sensors every 60 minutes</p>
+                </div>
+                <Toggle on={autoCal} onToggle={() => setAutoCal(p => !p)} />
               </div>
-            ) : (
-              <>
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-[12px] text-[var(--text-secondary)]">NFC Reader Sensitivity</span>
-                    <span className="font-mono text-[13px] font-bold text-white">{nfcSensitivity}%</span>
-                  </div>
-                  <input type="range" min={0} max={100} value={nfcSensitivity}
-                    onChange={(e) => handleUpdate('nfc_reader_sensitivity', Number(e.target.value))}
-                    className="w-full h-1 rounded-full appearance-none cursor-pointer"
-                    style={{ background: `linear-gradient(to right, var(--primary) ${nfcSensitivity}%, rgba(255,255,255,0.1) ${nfcSensitivity}%)` }} />
-                  <p className="text-[11px] text-[var(--text-tertiary)] mt-2">Adjusts proximity detection for wearable transponders.</p>
-                </div>
-
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-[12px] text-[var(--text-secondary)]">RFID Range (Meters)</span>
-                    <span className="font-mono text-[13px] font-bold text-white">{rfidRange.toFixed(1)}m</span>
-                  </div>
-                  <input type="range" min={0} max={10} step={0.1} value={rfidRange}
-                    onChange={(e) => handleUpdate('rfid_range_meters', Number(e.target.value))}
-                    className="w-full h-1 rounded-full appearance-none cursor-pointer"
-                    style={{ background: `linear-gradient(to right, var(--primary) ${rfidRange * 10}%, rgba(255,255,255,0.1) ${rfidRange * 10}%)` }} />
-                  <p className="text-[11px] text-[var(--text-tertiary)] mt-2">Maximum distance for long-range positioning tags.</p>
-                </div>
-
-                <div className="p-4 rounded-xl" style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--glass-border)" }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[13px] font-medium text-white">Hardware Auto-Calibration</p>
-                      <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Sync sensors every 60 minutes</p>
-                    </div>
-                    <div className={`toggle-switch ${autoCal ? "active" : ""}`}
-                      onClick={() => handleUpdate('hardware_auto_calibration', !autoCal)} />
-                  </div>
-                </div>
-              </>
-            )}
+            </div>
           </div>
 
-          {/* Security Protocols */}
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "rgba(255,77,109,0.1)", border: "1px solid rgba(255,77,109,0.2)" }}>
-                <Shield size={16} className="text-[#FF4D6D]" />
-              </div>
-              <h3 className="text-[15px] font-semibold text-white">Security Protocols</h3>
+          {/* ── Security Protocols ── */}
+          <div style={card({ padding: 22 })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+              <SectionIcon bg="rgba(255,77,109,0.10)" borderColor="rgba(255,77,109,0.22)">
+                <Shield size={16} color={C.red} />
+              </SectionIcon>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Security Protocols</h3>
             </div>
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2].map((i) => <div key={i} className="h-16 rounded-xl animate-pulse bg-white/[0.06]" />)}
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2 }}>Proximity Breach Thresholds</span>
+                <span style={{ color: C.amber }}>⚠</span>
               </div>
-            ) : (
-              <>
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-[11px] text-[var(--text-secondary)]">Proximity Breach Thresholds</span>
-                    <span className="text-[var(--accent-amber)]">⚠</span>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-tertiary)] mb-3">Trigger alert if &lt; 0.2m</p>
-                  <div className="flex gap-2">
-                    {["Standard", "Strict"].map((mode) => (
-                      <button key={mode}
-                        onClick={() => handleUpdate('proximity_breach_mode', `"${mode}"`)}
-                        className={`flex-1 py-2 rounded-xl text-[12px] font-medium transition-all ${
-                          breachMode === mode ? "bg-[var(--primary)] text-[#0d0d0f]" : "border border-white/10 text-[var(--text-secondary)] hover:border-white/20"
-                        }`}>
-                        {mode}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-mono text-[11px] text-[var(--text-secondary)]">Bio-Link Timeout</span>
-                    <span className="font-mono text-[13px] font-bold text-white">{bioTimeout}s</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {[5, 15, 30, 0].map((t) => (
-                      <button key={t}
-                        onClick={() => handleUpdate('bio_link_timeout_seconds', t)}
-                        className={`flex-1 py-2 rounded-xl text-[12px] font-medium transition-all ${
-                          bioTimeout === t ? "bg-[var(--primary)] text-[#0d0d0f]" : "border border-white/10 text-[var(--text-secondary)] hover:border-white/20"
-                        }`}>
-                        {t === 0 ? 'Off' : `${t}s`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="rounded-xl overflow-hidden" style={{ height: 100 }}>
-                  <div className="w-full h-full flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, #0a0a0f 0%, #15151f 100%)", border: "1px solid var(--glass-border)" }}>
-                    <div className="relative">
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                        <Shield size={28} className="text-[var(--text-tertiary)]" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+              <p style={{ fontSize: 10, color: C.t3, fontFamily: "Inter,sans-serif", marginBottom: 10 }}>Trigger alert if &lt; 0.2m</p>
+              <SegmentedControl options={["Standard", "Strict"]} value={breachMode} onChange={setBreach} />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2 }}>Bio-Link Timeout</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: C.t1 }}>{bioTimeout}</span>
+              </div>
+              <SegmentedControl options={["5s", "15s", "30s", "Off"]} value={bioTimeout} onChange={setBioTo} />
+            </div>
+
+            {/* Shield visual */}
+            <div style={{ height: 90, borderRadius: 12, overflow: "hidden", background: "linear-gradient(135deg,#0a0a10,#141420)", border: `1px solid ${C.stroke}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Shield size={36} color="rgba(255,255,255,0.08)" />
+            </div>
           </div>
 
-          {/* CEMS Engine */}
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.2)" }}>
-                <Cpu size={16} className="text-[var(--accent-green)]" />
-              </div>
-              <h3 className="text-[15px] font-semibold text-white">CEMS Engine</h3>
+          {/* ── CEMS Engine ── */}
+          <div style={card({ padding: 22 })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+              <SectionIcon bg="rgba(74,222,128,0.10)" borderColor="rgba(74,222,128,0.22)">
+                <Cpu size={16} color={C.green} />
+              </SectionIcon>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>CEMS Engine</h3>
             </div>
-            <div className="p-4 rounded-xl mb-4" style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--glass-border)" }}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[12px] text-[var(--primary)]">Sync Precision</span>
-                <span className="badge badge-active text-[9px]">Active</span>
+
+            {/* Sync precision block */}
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(0,0,0,0.25)", border: `1px solid ${C.stroke}`, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.blue }}>Sync Precision</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: "rgba(74,222,128,0.12)", border: "1px solid rgba(74,222,128,0.28)", color: C.green, letterSpacing: "0.1em" }}>ACTIVE</span>
               </div>
-              <p className="text-[12px] text-[var(--text-secondary)] mb-3">Master clock synchronization across distributed nodes.</p>
-              <div className="progress-bar mb-1">
-                <div className="progress-fill" style={{ width: "60%" }} />
+              <p style={{ fontSize: 12, color: C.t2, fontFamily: "Inter,sans-serif", lineHeight: 1.6, marginBottom: 10 }}>
+                Master clock synchronization across distributed nodes.
+              </p>
+              {/* Progress bar */}
+              <div style={{ height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 99, marginBottom: 4 }}>
+                <div style={{ height: 3, width: "60%", background: C.blue, borderRadius: 99 }} />
               </div>
-              <p className="text-right font-mono text-[10px] text-[var(--text-tertiary)]">0.4ms Latency</p>
+              <p style={{ fontSize: 10, color: C.t3, fontFamily: "'JetBrains Mono',monospace", textAlign: "right" }}>0.4ms Latency</p>
             </div>
-            <p className="font-mono text-[11px] text-[var(--text-secondary)] mb-2">AI Activity Mapping Rules</p>
-            <button className="w-full p-3 rounded-xl flex items-center justify-between text-[12px] font-mono"
-              style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--glass-border)" }}>
-              <span className="text-[var(--primary)]">
-                {String(settings['ai_activity_mapping'] ?? '"Heuristic Pattern Matching (v4.2)"').replace(/"/g, '')}
+
+            <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2, marginBottom: 8 }}>AI Activity Mapping Rules</p>
+            <button style={{
+              width: "100%", padding: "12px 14px", borderRadius: 12,
+              background: "rgba(0,0,0,0.25)", border: `1px solid ${C.stroke}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              cursor: "pointer",
+            }}>
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.blue }}>
+                Heuristic Pattern Matching (v4.2)
               </span>
-              <ChevronDown size={14} className="text-[var(--text-secondary)]" />
+              <ChevronDown size={14} color={C.t2} />
             </button>
           </div>
 
-          {/* Communication */}
-          <div className="glass-card p-5">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "rgba(173,198,255,0.1)", border: "1px solid var(--primary-border)" }}>
-                <Radio size={16} className="text-[var(--primary)]" />
-              </div>
-              <h3 className="text-[15px] font-semibold text-white">Communication</h3>
+          {/* ── Communication ── */}
+          <div style={card({ padding: 22 })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+              <SectionIcon bg="rgba(173,198,255,0.10)" borderColor="rgba(173,198,255,0.22)">
+                <Radio size={16} color={C.blue} />
+              </SectionIcon>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Communication</h3>
             </div>
-            <div className="mb-4">
-              <p className="font-mono text-[11px] text-[var(--text-secondary)] mb-3">Haptic Alert Patterns</p>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1 items-end flex-1">
-                  {[4, 8, 4, 8, 3, 5, 3].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm bg-[var(--primary)]"
-                      style={{ height: h * 4 + "px", opacity: 0.7 }} />
+
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2, marginBottom: 10 }}>Haptic Alert Patterns</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, flex: 1 }}>
+                  {[16,32,16,32,12,20,12].map((h, i) => (
+                    <div key={i} style={{ flex: 1, borderRadius: 3, background: C.blue, height: h, opacity: 0.65 }} />
                   ))}
                 </div>
-                <button className="text-[11px] text-[var(--primary)] hover:text-white transition-colors whitespace-nowrap">Preview Pulse</button>
+                <button style={{ fontSize: 11, color: C.blue, fontFamily: "Inter,sans-serif", background: "transparent", border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  Preview Pulse
+                </button>
               </div>
             </div>
-            <div className="mb-3">
-              <button className="w-full p-3 rounded-xl flex items-center justify-between"
-                style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--glass-border)" }}>
-                <div className="text-left">
-                  <p className="text-[12px] font-medium text-white">WebRTC Video Quality</p>
-                  <p className="text-[10px] text-[var(--text-tertiary)]">
-                    {String(settings['webrtc_quality'] ?? '"4K/60fps"').replace(/"/g, '')}
-                  </p>
-                </div>
-                <ChevronDown size={14} className="text-[var(--text-secondary)]" />
-              </button>
-            </div>
-            <div className="p-3 rounded-xl" style={{ background: "rgba(255,77,109,0.08)", border: "1px solid rgba(255,77,109,0.2)" }}>
-              <div className="flex items-center gap-2">
-                <Radio size={12} className="text-[#FF4D6D]" />
-                <span className="font-mono text-[10px] text-[#FF4D6D] uppercase tracking-wider">
-                  Failover Mode: Using Mesh Satellite Link
+
+            {/* WebRTC Quality */}
+            <button style={{
+              width: "100%", padding: "12px 14px", borderRadius: 12,
+              background: "rgba(0,0,0,0.25)", border: `1px solid ${C.stroke}`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              cursor: "pointer", marginBottom: 10,
+            }}>
+              <div style={{ textAlign: "left" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif", marginBottom: 2 }}>WebRTC Video Quality</p>
+                <p style={{ fontSize: 10, color: C.t3, fontFamily: "Inter,sans-serif" }}>4K/60fps</p>
+              </div>
+              <ChevronDown size={14} color={C.t2} />
+            </button>
+
+            {/* Failover warning */}
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(255,77,109,0.07)", border: "1px solid rgba(255,77,109,0.20)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Radio size={12} color={C.red} />
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, color: C.red, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  FAILOVER MODE: USING MESH SATELLITE LINK
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Footer Status Bar */}
-        <div className="grid grid-cols-4 gap-4">
+        {/* ── Footer Status Bar ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
           {[
-            { label: "Server Status", value: "Optimal", dot: "dot-green" },
-            { label: "Total Nodes", value: "1,402", dot: null },
-            { label: "Last Sync", value: saving ? "Saving..." : "Just now", dot: null },
-            { label: "Protocol V.", value: "09.55.2", dot: null },
+            { label: "SERVER STATUS", value: "Optimal",    dot: C.green },
+            { label: "TOTAL NODES",   value: "1,402",      dot: null },
+            { label: "LAST SYNC",     value: saving ? "Saving…" : "Just now", dot: null },
+            { label: "PROTOCOL V.",   value: "09.55.2",    dot: null },
           ].map(({ label, value, dot }) => (
-            <div key={label} className="metric-card py-3 px-4">
-              <p className="label-caps mb-1">{label}</p>
-              <div className="flex items-center gap-2">
-                {dot && <div className={`dot ${dot}`} />}
-                <p className="text-[15px] font-semibold text-white">{value}</p>
+            <div key={label} style={card({ padding: "16px 18px" })}>
+              <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {dot && <span style={{ width: 8, height: 8, borderRadius: "50%", background: dot, boxShadow: `0 0 8px ${dot}`, flexShrink: 0 }} />}
+                <span style={{ fontSize: 16, fontWeight: 700, color: C.t1, fontFamily: "Inter,sans-serif" }}>{value}</span>
               </div>
             </div>
           ))}

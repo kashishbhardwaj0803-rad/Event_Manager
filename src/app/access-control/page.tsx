@@ -1,271 +1,301 @@
 "use client";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Shield, Search, Lock, Fingerprint } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getGateLog, getBioLinks, addGateLogEntry, subscribeToGateLog, EVENT_ID } from "@/lib/database";
-import type { GateLogEntry, BioLink } from "@/lib/types";
+import { useState } from "react";
+
+const C = {
+  glass: "rgba(255,255,255,0.04)", glassH: "rgba(255,255,255,0.07)",
+  stroke: "rgba(255,255,255,0.08)", strokeS: "rgba(255,255,255,0.14)",
+  t1: "rgba(255,255,255,0.95)", t2: "rgba(255,255,255,0.60)",
+  t3: "rgba(255,255,255,0.35)", t4: "rgba(255,255,255,0.18)",
+  blue: "#ADC6FF", blueA: "#4B8EFF", green: "#4ADE80", amber: "#FFD166", red: "#FF4D6D",
+  s1: "#131315",
+};
+
+function card(extra?: React.CSSProperties): React.CSSProperties {
+  return {
+    background: C.glass, backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)", borderRadius: 16,
+    border: `1px solid ${C.stroke}`, overflow: "hidden", ...extra,
+  };
+}
+
+const GATE_LOG = [
+  { initials: "SV", name: "Sarah Vance",    clearance: "L3EXEC", type: "STAFF", status: "authorized", time: "14:02:11" },
+  { initials: "UK", name: "Unknown Entity", clearance: "L0 NULL",type: "GUEST", status: "denied",     time: "13:58:45" },
+  { initials: "RJ", name: "Robert Jenkins", clearance: "L1 VISITOR", type: "GUEST", status: "pending", time: "13:55:02" },
+];
 
 export default function AccessControlPage() {
-  const [gateLog, setGateLog] = useState<GateLogEntry[]>([]);
-  const [activePairing, setActivePairing] = useState<BioLink | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [scanResult, setScanResult] = useState<'idle' | 'authorized' | 'denied'>('idle');
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const [log, links] = await Promise.all([getGateLog(10), getBioLinks()]);
-      setGateLog(log);
-      setActivePairing(links[0] ?? null);
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  // Realtime gate log
-  useEffect(() => {
-    const sub = subscribeToGateLog((entry) => {
-      setGateLog((prev) => [entry, ...prev].slice(0, 10));
-    });
-    return () => { sub.unsubscribe(); };
-  }, []);
+  const [scanState, setScanState] = useState<"idle"|"scanning"|"authorized"|"denied">("idle");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleScan = async () => {
-    setScanning(true);
-    setScanResult('idle');
-    await new Promise((r) => setTimeout(r, 2200));
-    setScanning(false);
-    // Simulate authorized tap
-    const result = Math.random() > 0.25 ? 'authorized' : 'denied';
-    setScanResult(result);
-    // Write to gate_log in Supabase
-    await addGateLogEntry({
-      event_id: EVENT_ID,
-      guest_id: result === 'authorized' ? 'b1000000-0000-0000-0000-000000000001' : null,
-      wristband_uid: result === 'authorized' ? 'NFC-MC-001' : 'NFC-UNKNOWN-SIM',
-      action: result === 'authorized' ? 'entry' : 'denied',
-      gate_id: 'G-12',
-      clearance_level: result === 'authorized' ? 'L3EXEC' : 'L0 NULL',
-      guest_type: 'GUEST',
-      status: result,
-      authorized_by: null,
-    });
-    setTimeout(() => setScanResult('idle'), 3000);
+    setScanState("scanning");
+    await new Promise(r => setTimeout(r, 2200));
+    setScanState(Math.random() > 0.25 ? "authorized" : "denied");
+    setTimeout(() => setScanState("idle"), 3000);
   };
+
+  const dotColor = scanState === "scanning" ? C.amber : scanState === "authorized" ? C.green : scanState === "denied" ? C.red : C.green;
 
   return (
     <DashboardLayout>
-      <div className="p-6 h-[calc(100vh-56px)] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
+      <div style={{ padding: 24, height: "calc(100vh - 56px)", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {/* Page Header */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <h1 className="text-[26px] font-bold text-white">Secure Access Control Gateway</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="dot dot-amber" />
-              <p className="text-[12px] font-mono text-[var(--text-secondary)]">Gate G-12 • High Density Protocol Active</p>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: C.t1, fontFamily: "Inter,sans-serif", letterSpacing: -0.5 }}>
+              Secure Access Control Gateway
+            </h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.amber, boxShadow: `0 0 6px ${C.amber}` }} />
+              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.t2 }}>Gate G-12 • High Density Protocol Active</span>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button className="btn-danger flex items-center gap-2"><Lock size={13} /> Emergency Lockdown</button>
-            <button className="btn-ghost flex items-center gap-2">⇄ Sync Events</button>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 18px", borderRadius: 10, cursor: "pointer",
+              background: "rgba(255,77,109,0.12)", border: "1px solid rgba(255,77,109,0.3)",
+              fontSize: 12, fontWeight: 700, color: C.red, fontFamily: "Inter,sans-serif",
+              letterSpacing: "0.04em", textTransform: "uppercase",
+            }}>
+              <Lock size={13} /> Emergency Lockdown
+            </button>
+            <button style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 18px", borderRadius: 10, cursor: "pointer",
+              background: "transparent", border: `1px solid ${C.stroke}`,
+              fontSize: 13, fontWeight: 500, color: C.t2, fontFamily: "Inter,sans-serif",
+            }}>
+              ⇄ Sync Events
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
-          {/* Left: Scanner + Gate Log */}
-          <div className="space-y-4">
+        {/* 2-column grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+          {/* LEFT: Scanner + Gate Log */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
             {/* NFC Scanner */}
-            <div className="glass-card p-8 flex flex-col items-center justify-center text-center" style={{ minHeight: 280 }}>
-              <div className="relative mb-6">
-                {scanning && (
-                  <>
-                    <div className="scanner-ring absolute" style={{ inset: -20, animationDelay: "0s" }} />
-                    <div className="scanner-ring absolute" style={{ inset: -20, animationDelay: "0.7s" }} />
-                  </>
-                )}
-                <div className={`w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 ${
-                  scanResult === 'authorized' ? 'bg-green-500/20 border-green-500/40' :
-                  scanResult === 'denied' ? 'bg-red-500/20 border-red-500/40' :
-                  'bg-white/[0.05] border-white/[0.08]'
-                }`} style={{ border: "1px solid" }}>
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--glass-border-strong)" }}>
-                    {scanResult === 'authorized' ? <span className="text-3xl">✓</span>
-                      : scanResult === 'denied' ? <span className="text-3xl text-[#FF4D6D]">✗</span>
-                      : <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-secondary)]">
-                          <rect x="5" y="3" width="14" height="18" rx="2"/><path d="M10 8h4M10 12h4M10 16h4"/>
-                        </svg>}
+            <div style={card({ padding: 32, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", minHeight: 280 })}>
+              {/* Pulse rings */}
+              <div style={{ position: "relative", marginBottom: 24 }}>
+                {scanState === "scanning" && <>
+                  {[0, 0.7].map((delay, i) => (
+                    <div key={i} style={{
+                      position: "absolute", inset: -20, borderRadius: "50%",
+                      border: `1px solid ${C.blue}`,
+                      animation: `ring-scan 2.2s ease-out ${delay}s infinite`,
+                    }} />
+                  ))}
+                </>}
+                <div style={{
+                  width: 96, height: 96, borderRadius: "50%",
+                  border: `1px solid ${
+                    scanState === "authorized" ? "rgba(74,222,128,0.4)" :
+                    scanState === "denied"     ? "rgba(255,77,109,0.4)" :
+                    C.stroke
+                  }`,
+                  background: scanState === "authorized" ? "rgba(74,222,128,0.08)" :
+                               scanState === "denied"     ? "rgba(255,77,109,0.08)" : C.glass,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.4s",
+                }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: "50%",
+                    background: "rgba(255,255,255,0.06)", border: `1px solid ${C.strokeS}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {scanState === "authorized"
+                      ? <span style={{ fontSize: 28, color: C.green }}>✓</span>
+                      : scanState === "denied"
+                      ? <span style={{ fontSize: 28, color: C.red }}>✗</span>
+                      : <Shield size={28} color={C.t2} />}
                   </div>
                 </div>
               </div>
-              <h2 className="text-[20px] font-bold text-white tracking-wide mb-2">
-                {scanResult === 'authorized' ? 'ACCESS GRANTED' : scanResult === 'denied' ? 'ACCESS DENIED' : 'TAP TO CHECK-IN'}
+
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: C.t1, letterSpacing: 1.5, fontFamily: "Inter,sans-serif", marginBottom: 8 }}>
+                {scanState === "authorized" ? "ACCESS GRANTED"
+                  : scanState === "denied" ? "ACCESS DENIED"
+                  : "TAP TO CHECK-IN"}
               </h2>
-              <p className="text-[12px] text-[var(--text-secondary)] max-w-xs leading-relaxed">
+              <p style={{ fontSize: 12, color: C.t2, maxWidth: 260, lineHeight: 1.6, fontFamily: "Inter,sans-serif", marginBottom: 16 }}>
                 Please bring your Bio-Linked NFC wristband close to the reader for secure gateway authentication.
               </p>
-              <div className="flex items-center gap-2 mt-4">
-                <div className={`dot ${scanning ? 'dot-amber animate-pulse-dot' : scanResult === 'authorized' ? 'dot-green' : scanResult === 'denied' ? 'dot-red' : 'dot-green'}`} />
-                <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase tracking-widest">
-                  {scanning ? 'Scanning...' : scanResult === 'authorized' ? 'Authorized' : scanResult === 'denied' ? 'Rejected' : 'Ready for Input'}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor, boxShadow: `0 0 6px ${dotColor}` }} />
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  {scanState === "scanning" ? "Scanning..." : scanState === "authorized" ? "Authorized" : scanState === "denied" ? "Rejected" : "Ready for Input"}
                 </span>
               </div>
-              <button onClick={handleScan} disabled={scanning} className="btn-primary mt-4 text-[12px] px-6 disabled:opacity-50">
-                {scanning ? 'Scanning...' : 'Simulate NFC Tap'}
+              <button onClick={handleScan} disabled={scanState === "scanning"} style={{
+                padding: "10px 24px", borderRadius: 10, cursor: "pointer",
+                background: "linear-gradient(180deg,#c5d8ff,#ADC6FF,#92b0f5)",
+                border: "none", fontSize: 13, fontWeight: 700, color: "#0a0a10",
+                fontFamily: "Inter,sans-serif", opacity: scanState === "scanning" ? 0.5 : 1,
+                boxShadow: "0 2px 12px rgba(173,198,255,0.3)",
+              }}>
+                {scanState === "scanning" ? "Scanning…" : "Simulate NFC Tap"}
               </button>
             </div>
 
             {/* Gate Log */}
-            <div className="glass-card p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Shield size={15} className="text-[var(--primary)]" />
-                  <span className="text-[14px] font-semibold text-white">Gate Log: Queue</span>
+            <div style={card({ padding: 20 })}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Shield size={15} color={C.blue} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Gate Log: Queue</span>
                 </div>
-                <div className="relative">
-                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-                  <input className="input-field pl-8 h-8 text-[11px] w-36" placeholder="Search UUID..." />
+                <div style={{ position: "relative" }}>
+                  <Search size={12} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.t3 }} />
+                  <input
+                    placeholder="Search UUID…"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    style={{
+                      paddingLeft: 30, paddingRight: 12, height: 32,
+                      borderRadius: 8, background: "rgba(255,255,255,0.04)",
+                      border: `1px solid ${C.stroke}`, fontSize: 11, color: C.t1,
+                      fontFamily: "Inter,sans-serif", outline: "none", width: 144,
+                    }}
+                  />
                 </div>
               </div>
-              <table className="data-table">
+
+              <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
-                  <tr><th>Name</th><th>Clearance</th><th>Type</th><th>Status</th><th>Time</th></tr>
+                  <tr>
+                    {["NAME","CLEARANCE","TYPE","STATUS","TIME"].map(h => (
+                      <th key={h} style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: C.t3, padding: "8px 10px", textAlign: "left", borderBottom: `1px solid ${C.stroke}` }}>{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
-                  {loading
-                    ? Array.from({ length: 3 }).map((_, i) => (
-                      <tr key={i}>{Array.from({ length: 5 }).map((_, j) => (
-                        <td key={j}><div className="h-4 rounded animate-pulse bg-white/[0.06]" /></td>
-                      ))}</tr>
-                    ))
-                    : gateLog.map((row) => (
-                      <tr key={row.id}>
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
-                              style={{ background: "rgba(255,255,255,0.08)" }}>
-                              {(row.guest as any)?.full_name?.split(' ').map((w: string) => w[0]).join('') || '??'}
+                  {GATE_LOG.map((row) => {
+                    const sc = row.status === "authorized" ? C.green : row.status === "denied" ? C.red : C.t3;
+                    return (
+                      <tr key={row.initials + row.time}>
+                        <td style={{ padding: "13px 10px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: C.t1, fontFamily: "Inter,sans-serif", flexShrink: 0 }}>
+                              {row.initials}
                             </div>
-                            <span className="text-[12px]">{(row.guest as any)?.full_name || 'Unknown Entity'}</span>
+                            <span style={{ fontSize: 12, color: C.t1, fontFamily: "Inter,sans-serif" }}>{row.name}</span>
                           </div>
                         </td>
-                        <td>
-                          <span className="badge badge-neutral font-mono text-[9px]" style={{
-                            color: row.status === 'authorized' ? 'var(--primary)' : row.status === 'denied' ? '#FF4D6D' : 'var(--text-tertiary)'
-                          }}>
-                            {row.clearance_level || 'L0 NULL'}
+                        <td style={{ padding: "13px 10px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.stroke}`, color: row.status === "authorized" ? C.blue : row.status === "denied" ? C.red : C.t3 }}>
+                            {row.clearance}
                           </span>
                         </td>
-                        <td className="text-[11px] text-[var(--text-secondary)] uppercase">{row.guest_type || 'GUEST'}</td>
-                        <td>
-                          <div className="flex items-center gap-1.5">
-                            <div className={`dot ${row.status === 'authorized' ? 'dot-green' : row.status === 'denied' ? 'dot-red' : 'dot-gray'}`} />
-                            <span className={`text-[10px] font-mono font-semibold ${
-                              row.status === 'authorized' ? 'text-[var(--accent-green)]' :
-                              row.status === 'denied' ? 'text-[#FF4D6D]' : 'text-[var(--text-secondary)]'
-                            }`}>{row.status?.toUpperCase()}</span>
+                        <td style={{ padding: "13px 10px", fontSize: 11, color: C.t2, fontFamily: "Inter,sans-serif", textTransform: "uppercase", letterSpacing: "0.04em", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>{row.type}</td>
+                        <td style={{ padding: "13px 10px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: sc, boxShadow: `0 0 6px ${sc}`, flexShrink: 0 }} />
+                            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, fontWeight: 700, color: sc, letterSpacing: "0.06em" }}>{row.status.toUpperCase()}</span>
                           </div>
                         </td>
-                        <td className="font-mono text-[11px] text-[var(--text-tertiary)]">
-                          {new Date(row.timestamp).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </td>
+                        <td style={{ padding: "13px 10px", fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: C.t3, borderBottom: "1px solid rgba(255,255,255,0.04)" }}>{row.time}</td>
                       </tr>
-                    ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Right: Active Pairing + Staff Override */}
-          <div className="space-y-4">
+          {/* RIGHT: Active Pairing + Gateway Terminal + Latency */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
             {/* Active Pairing */}
-            <div className="glass-card p-5">
-              <div className="flex items-center justify-between mb-5">
-                <span className="text-[14px] font-semibold text-white uppercase tracking-wide">Active Pairing</span>
-                <span className="badge badge-active">Encrypted</span>
+            <div style={card({ padding: 20 })}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.t1, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "Inter,sans-serif" }}>Active Pairing</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 4, background: "rgba(173,198,255,0.1)", border: `1px solid rgba(173,198,255,0.28)`, color: C.blue, letterSpacing: "0.1em" }}>ENCRYPTED</span>
               </div>
-              {loading ? (
-                <div className="flex justify-between gap-4 mb-5">
-                  {[1, 2].map((i) => <div key={i} className="flex-1 h-32 rounded-xl animate-pulse bg-white/[0.06]" />)}
-                </div>
-              ) : activePairing ? (
-                <div className="flex items-center justify-between gap-4 mb-5">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-20 h-20 rounded-xl flex items-center justify-center text-[var(--primary)] text-2xl font-bold"
-                      style={{ background: "linear-gradient(135deg,#1a2a4a,#0d1929)", border: "1px solid var(--glass-border)" }}>
-                      {(activePairing.parent as any)?.full_name?.split(' ').map((w: string) => w[0]).join('')}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[12px] font-semibold text-white">{(activePairing.parent as any)?.full_name}</p>
-                      <p className="font-mono text-[9px] text-[var(--text-tertiary)] uppercase tracking-wider">Primary Guardian</p>
-                    </div>
+              {/* Pair cards */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+                {/* Guardian */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 80, height: 80, borderRadius: 12, background: "linear-gradient(135deg,#1a2a4a,#0d1929)", border: `1px solid ${C.stroke}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: C.blue, fontFamily: "Inter,sans-serif" }}>
+                    MC
                   </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{ background: "var(--primary-dim)", border: "1px solid var(--primary-border)" }}>
-                      <Fingerprint size={14} className="text-[var(--primary)]" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-20 h-20 rounded-xl flex items-center justify-center text-[var(--accent-green)] text-2xl font-bold"
-                      style={{ background: "linear-gradient(135deg,#1a3a2a,#0d2919)", border: "1px solid var(--glass-border)" }}>
-                      {(activePairing.child as any)?.full_name?.split(' ').map((w: string) => w[0]).join('')}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[12px] font-semibold text-white">{(activePairing.child as any)?.full_name}</p>
-                      <p className="font-mono text-[9px] text-[var(--text-tertiary)] uppercase tracking-wider">Linked Minor</p>
-                    </div>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Marcus Chen</p>
+                    <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase" }}>Primary Guardian</p>
                   </div>
                 </div>
-              ) : (
-                <p className="text-[12px] text-[var(--text-tertiary)] text-center py-4">No active pairing</p>
-              )}
-              <div className="flex items-center justify-between p-3 rounded-xl"
-                style={{ background: "rgba(74,222,128,0.05)", border: "1px solid rgba(74,222,128,0.15)" }}>
-                <span className="font-mono text-[11px] text-[var(--text-secondary)] uppercase tracking-wider">Status</span>
-                <span className="font-mono text-[11px] font-bold text-[var(--accent-green)] uppercase tracking-wider">Authorized</span>
+                {/* Link icon */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(173,198,255,0.1)", border: `1px solid rgba(173,198,255,0.25)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Fingerprint size={14} color={C.blue} />
+                  </div>
+                </div>
+                {/* Child */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 80, height: 80, borderRadius: 12, background: "linear-gradient(135deg,#1a3a2a,#0d2919)", border: `1px solid ${C.stroke}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: C.green, fontFamily: "Inter,sans-serif" }}>
+                    LC
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif" }}>Leo Chen</p>
+                    <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase" }}>Linked Minor</p>
+                  </div>
+                </div>
               </div>
-              <div className="progress-bar mt-2">
-                <div className="progress-fill progress-fill-green" style={{ width: "100%" }} />
+              {/* Status bar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(74,222,128,0.05)", border: "1px solid rgba(74,222,128,0.15)" }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: "0.08em" }}>STATUS</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: "0.08em" }}>AUTHORIZED</span>
+              </div>
+              <div style={{ height: 2, background: "rgba(255,255,255,0.08)", borderRadius: 99, marginTop: 8 }}>
+                <div style={{ height: 2, width: "100%", background: C.green, borderRadius: 99 }} />
               </div>
             </div>
 
             {/* Gateway Terminal */}
-            <div className="glass-card p-5">
-              <p className="label-caps mb-1">Gateway Terminal</p>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[22px] font-bold text-white tracking-wide">SECURED</p>
-                <Shield size={22} className="text-[var(--primary)]" />
+            <div style={card({ padding: 20 })}>
+              <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>GATEWAY TERMINAL</p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <p style={{ fontSize: 22, fontWeight: 700, color: C.t1, letterSpacing: 1, fontFamily: "Inter,sans-serif" }}>SECURED</p>
+                <Shield size={22} color={C.blue} />
               </div>
-              <div className="pt-4 border-t border-white/[0.06]">
-                <p className="text-[14px] font-semibold text-white mb-1">Staff Override</p>
-                <p className="text-[11px] text-[var(--text-secondary)] mb-4">Authorized personnel only. Requires bi-modal secondary authentication.</p>
-                <p className="label-caps mb-2">Staff PIN</p>
-                <div className="flex gap-2 mb-4">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--glass-border)" }} />
+              <div style={{ borderTop: `1px solid ${C.stroke}`, paddingTop: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: C.t1, fontFamily: "Inter,sans-serif", marginBottom: 4 }}>Staff Override</p>
+                <p style={{ fontSize: 11, color: C.t2, fontFamily: "Inter,sans-serif", lineHeight: 1.6, marginBottom: 16 }}>
+                  Authorized personnel only. Requires bi-modal secondary authentication.
+                </p>
+                <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>STAFF PIN</p>
+                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                  {[0,1,2,3].map(i => (
+                    <div key={i} style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.stroke}` }} />
                   ))}
                 </div>
-                <button className="btn-ghost w-full flex items-center justify-center gap-2 mb-3 text-[12px]">
-                  <Fingerprint size={13} className="text-[var(--primary)]" /> Scan Bio-Key to Initiate Override
-                </button>
-                <button className="btn-ghost w-full flex items-center justify-center gap-2 text-[12px]">
-                  <Shield size={13} /> Request 2FA Prompt
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button style={{ padding: "10px", borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.stroke}`, fontSize: 12, color: C.t2, fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <Fingerprint size={13} color={C.blue} /> Scan Bio-Key to Initiate Override
+                  </button>
+                  <button style={{ padding: "10px", borderRadius: 10, cursor: "pointer", background: "rgba(255,255,255,0.03)", border: `1px solid ${C.stroke}`, fontSize: 12, color: C.t2, fontFamily: "Inter,sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                    <Shield size={13} color={C.t3} /> Request 2FA Prompt
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Network Latency */}
-            <div className="glass-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="label-caps">Network Latency</p>
-                <span className="font-mono text-[12px] text-white font-bold">12ms</span>
+            <div style={card({ padding: 16 })}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: C.t3, letterSpacing: "0.12em", textTransform: "uppercase" }}>NETWORK LATENCY</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, fontWeight: 700, color: C.t1 }}>12ms</span>
               </div>
-              <div className="flex gap-1 items-end h-8">
-                {[3, 5, 4, 8, 6, 9, 7, 5, 8, 10, 7, 12].map((v, i) => (
-                  <div key={i} className="flex-1 rounded-sm transition-all"
-                    style={{ height: `${(v / 12) * 100}%`, background: v > 10 ? "var(--primary)" : "rgba(173,198,255,0.3)" }} />
+              <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 32 }}>
+                {[3,5,4,8,6,9,7,5,8,10,7,12].map((v, i) => (
+                  <div key={i} style={{ flex: 1, borderRadius: 3, background: v > 10 ? C.blue : "rgba(173,198,255,0.25)", height: `${(v/12)*100}%`, transition: "height 0.3s" }} />
                 ))}
               </div>
             </div>
