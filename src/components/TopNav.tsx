@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Settings, HelpCircle, X, AlertTriangle, Info, CheckCircle } from "lucide-react";
+import { Bell, Settings, HelpCircle, X, AlertTriangle, Info, CheckCircle, Search } from "lucide-react";
 
 interface TopNavProps {
   tabs?: string[];
   defaultTab?: string;
+  showSearch?: boolean;
+  searchPlaceholder?: string;
 }
 
 const NOTIFICATIONS = [
@@ -15,10 +17,11 @@ const NOTIFICATIONS = [
   { id: "4", type: "info",   icon: Info,          title: "Engine Sync",          body: "Parallel Engine reached 98.4% alignment.", time: "22m ago" },
 ];
 
-export default function TopNav({ tabs = [], defaultTab }: TopNavProps) {
+export default function TopNav({ tabs = [], defaultTab, showSearch, searchPlaceholder }: TopNavProps) {
   const [activeTab, setActiveTab] = useState(defaultTab ?? tabs[0] ?? "");
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   const unread = notifications.filter(n => n.type === "danger" || n.type === "info").length;
@@ -36,11 +39,11 @@ export default function TopNav({ tabs = [], defaultTab }: TopNavProps) {
         WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
         display: "flex", alignItems: "center",
-        paddingLeft: 24, paddingRight: 24, gap: 8,
+        paddingLeft: 24, paddingRight: 24, gap: 16,
         position: "sticky", top: 0, zIndex: 100, flexShrink: 0,
       }}>
         {/* Tabs */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {tabs.map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               background: "transparent", border: "none",
@@ -53,6 +56,37 @@ export default function TopNav({ tabs = [], defaultTab }: TopNavProps) {
             }}>{tab}</button>
           ))}
         </div>
+
+        {/* Search Bar */}
+        {showSearch && (
+          <div style={{ flex: 1, maxWidth: 400, position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.3)" }} />
+            <input
+              type="text"
+              placeholder={searchPlaceholder || "Search..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                height: 36,
+                paddingLeft: 36,
+                paddingRight: 12,
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#fff",
+                fontSize: 13,
+                fontFamily: "Inter, sans-serif",
+                outline: "none",
+                transition: "all 0.2s",
+              }}
+              onFocus={(e) => { e.target.style.border = "1px solid rgba(173,198,255,0.3)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
+              onBlur={(e) => { e.target.style.border = "1px solid rgba(255,255,255,0.08)"; e.target.style.background = "rgba(255,255,255,0.04)"; }}
+            />
+          </div>
+        )}
+
+        <div style={{ flex: showSearch ? 0 : 1 }} />
 
         {/* Right icons */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

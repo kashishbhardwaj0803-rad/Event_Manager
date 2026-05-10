@@ -7,9 +7,11 @@ interface Props {
   children: ReactNode;
   tabs?: string[];
   defaultTab?: string;
+  showSearch?: boolean;
+  searchPlaceholder?: string;
 }
 
-export default function DashboardLayout({ children, tabs, defaultTab }: Props) {
+export default function DashboardLayout({ children, tabs, defaultTab, showSearch, searchPlaceholder }: Props) {
   return (
     <div style={{
       display: "flex",
@@ -30,7 +32,7 @@ export default function DashboardLayout({ children, tabs, defaultTab }: Props) {
         overflowX: "hidden",
       }}>
         {/* Top navigation */}
-        <TopNav tabs={tabs} defaultTab={defaultTab} />
+        <TopNav tabs={tabs} defaultTab={defaultTab} showSearch={showSearch} searchPlaceholder={searchPlaceholder} />
 
         {/* Page content */}
         <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>

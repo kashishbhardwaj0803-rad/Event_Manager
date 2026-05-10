@@ -7,15 +7,15 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 export interface Database {
   public: {
     Tables: {
-      events: { Row: Event; Insert: EventInsert; Update: Partial<EventInsert> };
-      timeline_milestones: { Row: TimelineMilestone; Insert: TimelineMilestoneInsert; Update: Partial<TimelineMilestoneInsert> };
-      guests: { Row: Guest; Insert: GuestInsert; Update: Partial<GuestInsert> };
-      bio_links: { Row: BioLink; Insert: BioLinkInsert; Update: Partial<BioLinkInsert> };
-      gate_log: { Row: GateLogEntry; Insert: GateLogInsert; Update: Partial<GateLogInsert> };
-      proximity_alerts: { Row: ProximityAlert; Insert: ProximityAlertInsert; Update: Partial<ProximityAlertInsert> };
-      family_moments: { Row: FamilyMoment; Insert: FamilyMomentInsert; Update: Partial<FamilyMomentInsert> };
-      support_tickets: { Row: SupportTicket; Insert: SupportTicketInsert; Update: Partial<SupportTicketInsert> };
-      system_settings: { Row: SystemSetting; Insert: SystemSettingInsert; Update: Partial<SystemSettingInsert> };
+      events: { Row: Event; Insert: EventInsert; Update: Partial<EventInsert>; Relationships: [] };
+      timeline_milestones: { Row: TimelineMilestone; Insert: TimelineMilestoneInsert; Update: Partial<TimelineMilestoneInsert>; Relationships: [] };
+      guests: { Row: Guest; Insert: GuestInsert; Update: Partial<GuestInsert>; Relationships: [] };
+      bio_links: { Row: BioLink; Insert: BioLinkInsert; Update: Partial<BioLinkInsert>; Relationships: [] };
+      gate_log: { Row: GateLogEntry; Insert: GateLogInsert; Update: Partial<GateLogInsert>; Relationships: [] };
+      proximity_alerts: { Row: ProximityAlert; Insert: ProximityAlertInsert; Update: Partial<ProximityAlertInsert>; Relationships: [] };
+      family_moments: { Row: FamilyMoment; Insert: FamilyMomentInsert; Update: Partial<FamilyMomentInsert>; Relationships: [] };
+      support_tickets: { Row: SupportTicket; Insert: SupportTicketInsert; Update: Partial<SupportTicketInsert>; Relationships: [] };
+      system_settings: { Row: SystemSetting; Insert: SystemSettingInsert; Update: Partial<SystemSettingInsert>; Relationships: [] };
     };
     Views: {};
     Functions: {};
