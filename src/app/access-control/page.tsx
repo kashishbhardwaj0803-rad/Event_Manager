@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import DashboardLayout from "@/components/DashboardLayout";
 import { Shield, Search, Lock, Fingerprint } from "lucide-react";
 import { useState } from "react";

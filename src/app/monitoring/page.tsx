@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import DashboardLayout from "@/components/DashboardLayout";
 import { Eye, Lock, MapPin, Clock, MessageSquare, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";

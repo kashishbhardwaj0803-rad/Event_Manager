@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import DashboardLayout from "@/components/DashboardLayout";
 import { Headphones, Server, Wifi, Zap, ExternalLink, Send } from "lucide-react";
 import { useState, useEffect } from "react";

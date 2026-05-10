@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = "force-dynamic";
+
 import DashboardLayout from "@/components/DashboardLayout";
 import { Activity, Clock, SkipForward, Unlink, Download } from "lucide-react";
 import { useState, useEffect } from "react";
