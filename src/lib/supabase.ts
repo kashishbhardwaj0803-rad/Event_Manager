@@ -1,24 +1,44 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// If we're on the server and env vars are missing, we skip initialization to avoid build crashes
-// The actual values must be set in the Vercel Dashboard for production runtime
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    })
-  : null as any; 
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storageKey: 'parallel-event-auth',
+  },
+});
 
+// ── Auth Helpers ─────────────────────────────────────────────
 
-export type SupabaseClient = typeof supabase;
+export async function signUp(email: string, password: string, fullName: string, role: 'company' | 'attendee') {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: fullName, role },
+    },
+  });
+  return { data, error };
+}
+
+export async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  return { data, error };
+}
+
+export async function signOut() {
+  return supabase.auth.signOut();
+}
+
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session;
+}
+
+export async function getUser() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
